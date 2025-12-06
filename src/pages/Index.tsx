@@ -15,6 +15,16 @@ interface ConnectionHistory {
   duration: number;
   dataUsed: number;
   status: 'success' | 'failed';
+  server?: string;
+}
+
+interface VPNServer {
+  id: string;
+  country: string;
+  city: string;
+  flag: string;
+  ping: number;
+  load: number;
 }
 
 export default function Index() {
@@ -25,6 +35,18 @@ export default function Index() {
   const [connectionTime, setConnectionTime] = useState(0);
   const [dataUsed, setDataUsed] = useState(0);
   const [history, setHistory] = useState<ConnectionHistory[]>([]);
+  const [selectedServer, setSelectedServer] = useState<VPNServer | null>(null);
+  
+  const servers: VPNServer[] = [
+    { id: '1', country: 'Нидерланды', city: 'Амстердам', flag: '🇳🇱', ping: 15, load: 45 },
+    { id: '2', country: 'США', city: 'Нью-Йорк', flag: '🇺🇸', ping: 85, load: 62 },
+    { id: '3', country: 'Германия', city: 'Франкфурт', flag: '🇩🇪', ping: 22, load: 38 },
+    { id: '4', country: 'Великобритания', city: 'Лондон', flag: '🇬🇧', ping: 28, load: 51 },
+    { id: '5', country: 'Франция', city: 'Париж', flag: '🇫🇷', ping: 31, load: 42 },
+    { id: '6', country: 'Япония', city: 'Токио', flag: '🇯🇵', ping: 120, load: 55 },
+    { id: '7', country: 'Сингапур', city: 'Сингапур', flag: '🇸🇬', ping: 95, load: 48 },
+    { id: '8', country: 'Канада', city: 'Торонто', flag: '🇨🇦', ping: 92, load: 40 },
+  ];
 
   useEffect(() => {
     const savedAutoConnect = localStorage.getItem('autoConnect') === 'true';
@@ -39,6 +61,10 @@ export default function Index() {
         ...h,
         timestamp: new Date(h.timestamp)
       })));
+    }
+    const savedServer = localStorage.getItem('selectedServer');
+    if (savedServer) {
+      setSelectedServer(JSON.parse(savedServer));
     }
     
     if (savedAutoConnect && savedConfig) {
@@ -66,6 +92,15 @@ export default function Index() {
       });
       return;
     }
+    
+    if (!selectedServer) {
+      toast({
+        title: 'Ошибка',
+        description: 'Выберите сервер',
+        variant: 'destructive',
+      });
+      return;
+    }
 
     setIsConnecting(true);
     await new Promise((resolve) => setTimeout(resolve, 2000));
@@ -76,7 +111,7 @@ export default function Index() {
     
     toast({
       title: 'Подключено',
-      description: 'VPN соединение установлено',
+      description: `Подключение к ${selectedServer.city}, ${selectedServer.country}`,
     });
   };
 
@@ -87,6 +122,7 @@ export default function Index() {
       duration: connectionTime,
       dataUsed: dataUsed,
       status: 'success',
+      server: selectedServer ? `${selectedServer.flag} ${selectedServer.city}` : undefined,
     };
     
     const updatedHistory = [newHistory, ...history.slice(0, 9)];
@@ -169,6 +205,56 @@ export default function Index() {
           </TabsList>
 
           <TabsContent value="connection" className="space-y-6 animate-fade-in">
+            <Card className="p-6">
+              <h3 className="font-semibold mb-4 flex items-center gap-2">
+                <Icon name="Globe" size={18} />
+                Выбор сервера
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {servers.map((server) => (
+                  <button
+                    key={server.id}
+                    onClick={() => {
+                      setSelectedServer(server);
+                      localStorage.setItem('selectedServer', JSON.stringify(server));
+                      toast({
+                        title: 'Сервер выбран',
+                        description: `${server.city}, ${server.country}`,
+                      });
+                    }}
+                    disabled={isConnected}
+                    className={`p-4 rounded-lg border-2 transition-all text-left hover:border-primary ${
+                      selectedServer?.id === server.id
+                        ? 'border-primary bg-primary/10'
+                        : 'border-border bg-muted/30'
+                    } ${isConnected ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-3">
+                        <span className="text-3xl">{server.flag}</span>
+                        <div>
+                          <p className="font-semibold">{server.city}</p>
+                          <p className="text-sm text-muted-foreground">{server.country}</p>
+                        </div>
+                      </div>
+                      {selectedServer?.id === server.id && (
+                        <Icon name="CheckCircle2" size={20} className="text-primary" />
+                      )}
+                    </div>
+                    <div className="flex items-center gap-4 text-sm">
+                      <div className="flex items-center gap-1">
+                        <Icon name="Activity" size={14} className="text-muted-foreground" />
+                        <span>{server.ping}ms</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Icon name="BarChart3" size={14} className="text-muted-foreground" />
+                        <span>{server.load}% загрузка</span>
+                      </div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </Card>
             <Card className="p-8">
               <div className="flex flex-col items-center space-y-6">
                 <div className="relative">
@@ -215,7 +301,21 @@ export default function Index() {
                       : 'Отключено'}
                   </p>
                   <p className="text-muted-foreground">
-                    {isConnected ? 'Защищённое соединение активно' : 'Нажмите для подключения'}
+                    {isConnected && selectedServer ? (
+                      <span className="flex items-center justify-center gap-2">
+                        <span className="text-2xl">{selectedServer.flag}</span>
+                        {selectedServer.city}, {selectedServer.country}
+                      </span>
+                    ) : isConnected ? (
+                      'Защищённое соединение активно'
+                    ) : selectedServer ? (
+                      <span className="flex items-center justify-center gap-2">
+                        <span className="text-xl">{selectedServer.flag}</span>
+                        {selectedServer.city}, {selectedServer.country}
+                      </span>
+                    ) : (
+                      'Выберите сервер и нажмите для подключения'
+                    )}
                   </p>
                 </div>
 
@@ -350,6 +450,7 @@ export default function Index() {
                           </p>
                           <p className="text-sm text-muted-foreground">
                             {item.timestamp.toLocaleTimeString('ru-RU')}
+                            {item.server && ` • ${item.server}`}
                           </p>
                         </div>
                       </div>
