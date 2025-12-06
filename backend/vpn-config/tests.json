@@ -1,0 +1,51 @@
+{
+  "tests": [
+    {
+      "name": "Parse valid WireGuard config",
+      "method": "POST",
+      "path": "/",
+      "body": {
+        "action": "parse",
+        "config": "[Interface]\nPrivateKey = gI6EdUSYvn8ugXOt8QQD6Yc+JyK2xQJxYLMqVJQFKlE=\nAddress = 10.0.0.2/24\nDNS = 1.1.1.1\n\n[Peer]\nPublicKey = HIgo9xNzJMWLKASShiTqIybxZ0U3wGLiUeJ1PKf8ykw=\nEndpoint = vpn.example.com:51820\nAllowedIPs = 0.0.0.0/0\nPersistentKeepalive = 25"
+      },
+      "expectedStatus": 200,
+      "expectedBody": {
+        "success": true,
+        "config": {
+          "endpoint": "string",
+          "address": "string"
+        }
+      },
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Validate config action",
+      "method": "POST",
+      "path": "/",
+      "body": {
+        "action": "validate",
+        "config": "[Interface]\nPrivateKey = gI6EdUSYvn8ugXOt8QQD6Yc+JyK2xQJxYLMqVJQFKlE=\nAddress = 10.0.0.2/24\n\n[Peer]\nPublicKey = HIgo9xNzJMWLKASShiTqIybxZ0U3wGLiUeJ1PKf8ykw=\nEndpoint = vpn.example.com:51820\nAllowedIPs = 0.0.0.0/0"
+      },
+      "expectedStatus": 200,
+      "expectedBody": {
+        "success": true,
+        "valid": true
+      },
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Handle missing config",
+      "method": "POST",
+      "path": "/",
+      "body": {
+        "action": "parse"
+      },
+      "expectedStatus": 400,
+      "expectedBody": {
+        "success": false,
+        "error": "string"
+      },
+      "bodyMatcher": "partial"
+    }
+  ]
+}

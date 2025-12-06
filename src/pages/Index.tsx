@@ -27,6 +27,8 @@ interface VPNServer {
   load: number;
 }
 
+const VPN_API_URL = 'https://functions.poehali.dev/5c4aee14-e53e-430b-b755-fb819425eb2d';
+
 export default function Index() {
   const [isConnected, setIsConnected] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
@@ -36,6 +38,8 @@ export default function Index() {
   const [dataUsed, setDataUsed] = useState(0);
   const [history, setHistory] = useState<ConnectionHistory[]>([]);
   const [selectedServer, setSelectedServer] = useState<VPNServer | null>(null);
+  const [configValid, setConfigValid] = useState(false);
+  const [configDetails, setConfigDetails] = useState<any>(null);
   
   const servers: VPNServer[] = [
     { id: '1', country: 'Нидерланды', city: 'Амстердам', flag: '🇳🇱', ping: 15, load: 45 },
@@ -139,7 +143,7 @@ export default function Index() {
     });
   };
 
-  const handleImportConfig = () => {
+  const handleImportConfig = async () => {
     if (!configKey.trim()) {
       toast({
         title: 'Ошибка',
@@ -149,11 +153,43 @@ export default function Index() {
       return;
     }
     
-    localStorage.setItem('vpnConfig', configKey);
-    toast({
-      title: 'Успешно',
-      description: 'Конфигурация импортирована',
-    });
+    try {
+      const response = await fetch(VPN_API_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'parse',
+          config: configKey,
+        }),
+      });
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        setConfigValid(true);
+        setConfigDetails(result.config);
+        localStorage.setItem('vpnConfig', configKey);
+        toast({
+          title: 'Успешно',
+          description: `Конфигурация проверена и импортирована. Endpoint: ${result.config.endpoint}`,
+        });
+      } else {
+        setConfigValid(false);
+        toast({
+          title: 'Ошибка',
+          description: result.error || 'Неверный формат конфигурации',
+          variant: 'destructive',
+        });
+      }
+    } catch (error) {
+      toast({
+        title: 'Ошибка',
+        description: 'Не удалось проверить конфигурацию',
+        variant: 'destructive',
+      });
+    }
   };
 
   const handleAutoConnectToggle = (checked: boolean) => {
@@ -398,17 +434,31 @@ export default function Index() {
 
                 <div className="p-4 bg-muted/50 rounded-lg">
                   <h3 className="font-medium mb-2">Статус конфигурации</h3>
-                  <div className="flex items-center gap-2">
-                    {configKey ? (
-                      <>
-                        <Icon name="CheckCircle2" size={16} className="text-primary" />
-                        <span className="text-sm">Конфигурация загружена</span>
-                      </>
-                    ) : (
-                      <>
-                        <Icon name="AlertCircle" size={16} className="text-destructive" />
-                        <span className="text-sm">Конфигурация не найдена</span>
-                      </>
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      {configValid && configKey ? (
+                        <>
+                          <Icon name="CheckCircle2" size={16} className="text-primary" />
+                          <span className="text-sm">Конфигурация проверена и валидна</span>
+                        </>
+                      ) : configKey ? (
+                        <>
+                          <Icon name="AlertCircle" size={16} className="text-yellow-500" />
+                          <span className="text-sm">Конфигурация загружена, но не проверена</span>
+                        </>
+                      ) : (
+                        <>
+                          <Icon name="XCircle" size={16} className="text-destructive" />
+                          <span className="text-sm">Конфигурация не найдена</span>
+                        </>
+                      )}
+                    </div>
+                    {configDetails && (
+                      <div className="text-xs text-muted-foreground space-y-1 mt-2 pl-6">
+                        <div>Endpoint: {configDetails.endpoint}</div>
+                        <div>Address: {configDetails.address}</div>
+                        {configDetails.dns && <div>DNS: {configDetails.dns}</div>}
+                      </div>
                     )}
                   </div>
                 </div>
